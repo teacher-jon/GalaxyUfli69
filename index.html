@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>UFLI Explorer: Lessons 69-76</title>
+    <style>
+        body {
+            margin: 0; overflow: hidden; background-color: #0d0e15;
+            font-family: 'Courier New', Courier, monospace;
+            color: white; touch-action: none; user-select: none; -webkit-user-select: none;
+        }
+
+        /* --- UI LAYERS --- */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: flex; flex-direction: column; align-items: center;
+        }
+
+        #top-hud {
+            width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.85);
+            text-align: center; border-bottom: 2px solid #00d2d3; box-sizing: border-box;
+            position: relative;
+        }
+
+        #level-indicator { color: #ff9ff3; font-weight: bold; font-size: 16px; margin-bottom: 2px; }
+        #lives-display { font-size: 20px; margin-bottom: 5px; text-shadow: 0 0 5px red; }
+        
+        #question-container {
+            background: rgba(0, 20, 40, 0.6);
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #54a0ff;
+            margin-top: 5px;
+            display: inline-block;
+        }
+
+        #question-text { font-size: 20px; color: #54a0ff; font-weight: bold; text-shadow: 0 0 10px #54a0ff; display: block; margin-bottom: 5px;}
+        #sentence-hint { font-size: 14px; font-style: italic; color: #c8d6e5; display: block; }
+        #letter-hint { 
+            font-size: 16px; color: #feca57; font-weight: bold; margin-top: 5px; 
+            display: none; animation: blinker 2s linear infinite;
+        }
+
+        @keyframes blinker { 50% { opacity: 0.5; } }
+        
+        #score-display {
+            position: absolute; top: 15px; right: 20px;
+            font-size: 20px; color: #feca57; font-weight: bold;
+        }
+
+        #quit-btn {
+            position: absolute; top: 15px; left: 15px; pointer-events: auto;
+            background: rgba(214, 48, 49, 0.8); border: 1px solid #ff7675;
+            color: white; padding: 5px 10px; cursor: pointer; border-radius: 5px;
+            font-family: inherit; font-weight: bold; font-size: 12px;
+            text-transform: uppercase; transition: 0.2s;
+        }
+        #quit-btn:active { transform: scale(0.95); background: #ff7675; }
+
+        #touch-controls {
+            position: absolute; bottom: 20px; left: 0; width: 100%; height: 120px;
+            pointer-events: auto; display: flex; justify-content: space-between;
+            padding: 0 40px; box-sizing: border-box; z-index: 50;
+        }
+
+        .touch-btn {
+            background: rgba(255, 255, 255, 0.15); border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%; width: 80px; height: 80px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 30px; color: white; cursor: pointer; transition: background 0.1s;
+        }
+        .touch-btn:active, .touch-btn.pressed { background: rgba(84, 160, 255, 0.6); transform: scale(0.95); }
+        #fire-btn { background: rgba(238, 82, 83, 0.25); border-color: #ee5253; width: 90px; height: 90px; }
+        #fire-btn:active, #fire-btn.pressed { background: rgba(238, 82, 83, 0.8); }
+
+        .screen-overlay {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(16, 20, 30, 0.95); padding: 30px; border-radius: 20px;
+            border: 4px solid #54a0ff; text-align: center; pointer-events: auto;
+            z-index: 100; width: 85%; max-width: 500px;
+        }
+        .hidden { display: none !important; }
+        
+        button.menu-btn {
+            background: #00d2d3; color: #2d3436; border: none; padding: 15px 30px;
+            font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 50px;
+            margin-top: 20px; font-family: inherit; width: 100%;
+        }
+        button.menu-btn:active { transform: scale(0.95); }
+        
+        #player-name {
+            background: rgba(0, 0, 0, 0.5); border: 2px solid #00d2d3;
+            color: #00d2d3; font-family: 'Courier New', Courier, monospace;
+            font-size: 24px; padding: 10px; text-align: center; width: 80%;
+            border-radius: 10px; outline: none; text-transform: uppercase; margin-bottom: 10px;
+        }
+        #player-name::placeholder { color: rgba(0, 210, 211, 0.4); }
+
+        #spelling-terminal {
+            border-color: #00cec9;
+            box-shadow: 0 0 30px rgba(0, 206, 201, 0.3);
+        }
+        #terminal-screen {
+            background: #000; border: 2px solid #555; padding: 20px;
+            margin: 20px 0; border-radius: 10px; min-height: 100px;
+            display: flex; flex-direction: column; justify-content: center;
+        }
+        #word-definition { color: #81ecec; font-size: 18px; margin-bottom: 15px; }
+        #typed-input {
+            font-size: 32px; letter-spacing: 5px; color: #00cec9;
+            font-weight: bold; text-transform: uppercase;
+            border-bottom: 2px solid #555; display: inline-block; min-width: 200px;
+        }
+        .blink { animation: blinkerCursor 1s linear infinite; }
+        @keyframes blinkerCursor { 50% { opacity: 0; } }
+        
+        #virtual-keyboard {
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin-top: 15px;
+        }
+        .key {
+            background: #2d3436; color: white; padding: 10px; min-width: 30px;
+            border-radius: 5px; cursor: pointer; border: 1px solid #636e72;
+        }
+        .key:active { background: #00cec9; color: black; }
+
+        canvas { display: block; }
+        #powerup-msg {
+            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+            color: #feca57; font-size: 30px; font-weight: bold; text-shadow: 0 0 20px gold;
+            display: none; pointer-events: none;
+        }
+        #saving-msg { font-size: 14px; color: #fab1a0; margin-top: 10px; display: none; }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <div id="top-hud">
+            <button id="quit-btn" onclick="endGame()">⚠ ABORT & SAVE</button>
+            <div id="level-indicator">LEVEL 1</div>
+            <div id="lives-display">❤️❤️❤️</div>
+            
+            <div id="question-container">
+                <div id="question-text">Loading...</div>
+                <div id="sentence-hint">Prepare for launch</div>
+                <div id="letter-hint"></div>
+            </div>
+
+            <div id="score-display">0</div>
+        </div>
+        <div id="powerup-msg">DUAL BLASTERS! ⭐</div>
+    </div>
+
+    <div id="touch-controls">
+        <div style="display:flex; gap:20px;">
+            <div class="touch-btn" id="btn-left">◀</div>
+            <div class="touch-btn" id="btn-right">▶</div>
+        </div>
+        <div class="touch-btn" id="fire-btn">🔥</div>
+    </div>
+
+    <div id="start-screen" class="screen-overlay">
+        <h1>🚀 UFLI Explorer</h1>
+        <p>Lessons 69 - 76</p>
+        <p>Please identify yourself, Captain.</p>
+        
+        <input type="text" id="player-name" placeholder="ENTER USERNAME" maxlength="12" autocomplete="off">
+        
+        <div style="margin-top: 20px; font-size: 14px; color: #81ecec;">
+            MISSION: tch, dge, Long VCC, y, le
+        </div>
+        
+        <button class="menu-btn" onclick="startGame()">LAUNCH MISSION</button>
+    </div>
+
+    <div id="spelling-terminal" class="screen-overlay hidden">
+        <h2 style="color:#00cec9">WARP DRIVE ENGAGED</h2>
+        <p>Type the password to jump sectors:</p>
+        
+        <div id="terminal-screen">
+            <div id="word-definition">DEFINITION HERE</div>
+            <div>
+                <span id="typed-input"></span><span class="blink">_</span>
+            </div>
+        </div>
+
+        <div id="virtual-keyboard">
+        </div>
+    </div>
+
+    <div id="game-over-screen" class="screen-overlay hidden">
+        <h1>Mission Complete!</h1>
+        <p>You have explored the whole galaxy!</p>
+        <h2 id="final-score">Score: 0</h2>
+        <div id="saving-msg">Transmitting flight data...</div>
+        <button class="menu-btn" onclick="resetGameUI()">RESTART GALAXY</button>
+    </div>
+
+<script>
+    // ==========================================
+    // === UFLI LESSONS 69-76 QUESTION BANK ===
+    // ==========================================
+    const sourceData = [
+        // Lesson 69: -tch /ch/
+        { word: "Catch", def: "To grab something flying", sent: "____ the ball!", group: "tch" },
+        { word: "Match", def: "They look the same", sent: "My socks do not ____.", group: "tch" },
+        { word: "Fetch", def: "Go get it", sent: "Dogs like to ____ sticks.", group: "tch" },
+        { word: "Witch", def: "Casts spells", sent: "The ____ has a broom.", group: "tch" },
+        { word: "Switch", def: "Turn on or off", sent: "Flip the light ____.", group: "tch" },
+        { word: "Pitch", def: "Throw the ball", sent: "____ the baseball.", group: "tch" },
+        { word: "Hatch", def: "Come out of an egg", sent: "The chick will ____ soon.", group: "tch" },
+        { word: "Stitch", def: "Sewing with needle", sent: "Put a ____ in the cloth.", group: "tch" },
+        { word: "Patch", def: "Piece of cloth to fix a hole", sent: "Sew a ____ on the jeans.", group: "tch" },
+        { word: "Scratch", def: "To itch", sent: "Do not ____ the bug bite.", group: "tch" },
+
+        // Lesson 70: -dge /j/
+        { word: "Badge", def: "A pin police officers wear", sent: "He showed his shiny ____.", group: "dge" },
+        { word: "Bridge", def: "Road over water", sent: "Drive over the ____.", group: "dge" },
+        { word: "Fudge", def: "Soft chocolate candy", sent: "I ate a piece of ____.", group: "dge" },
+        { word: "Judge", def: "Decides who wins", sent: "The ____ picked the winner.", group: "dge" },
+        { word: "Dodge", def: "Move out of the way", sent: "____ the ball!", group: "dge" },
+        { word: "Edge", def: "The side of something", sent: "Don't fall off the ____.", group: "dge" },
+        { word: "Hedge", def: "A fence made of bushes", sent: "Trim the green ____.", group: "dge" },
+        { word: "Lodge", def: "A cabin in the woods", sent: "We slept in a ski ____.", group: "dge" },
+        { word: "Pledge", def: "A promise", sent: "We say the ____ of Allegiance.", group: "dge" },
+        { word: "Smudge", def: "A dirty mark", sent: "There is a ____ on the glass.", group: "dge" },
+
+        // Lesson 72: Long VCC (-ild, -old, -ind, -olt, -ost)
+        { word: "Wild", def: "Not tame", sent: "A ____ tiger.", group: "vcc" },
+        { word: "Child", def: "A young kid", sent: "The ____ played with a toy.", group: "vcc" },
+        { word: "Cold", def: "Freezing", sent: "Winter is very ____.", group: "vcc" },
+        { word: "Gold", def: "Yellow metal", sent: "The ring is made of ____.", group: "vcc" },
+        { word: "Kind", def: "Nice and helpful", sent: "Always be ____.", group: "vcc" },
+        { word: "Mind", def: "Your brain / thoughts", sent: "Use your ____.", group: "vcc" },
+        { word: "Find", def: "Look for and see", sent: "Did you ____ your shoe?", group: "vcc" },
+        { word: "Most", def: "Almost all", sent: "____ people like pizza.", group: "vcc" },
+        { word: "Ghost", def: "Spooky spirit", sent: "The ____ said boo!", group: "vcc" },
+        { word: "Hold", def: "Keep in your hand", sent: "Please ____ this for me.", group: "vcc" },
+        { word: "Told", def: "Said to someone", sent: "Mom ____ me to clean up.", group: "vcc" },
+        { word: "Blind", def: "Cannot see", sent: "The ____ mouse.", group: "vcc" },
+        { word: "Post", def: "A wooden pole", sent: "Tie the horse to the ____.", group: "vcc" },
+        { word: "Bolt", def: "Lightning flash", sent: "A ____ of lightning.", group: "vcc" },
+
+        // Lesson 73: y /i/ (End of 1-syllable)
+        { word: "Cry", def: "Shed tears", sent: "Do not ____.", group: "y_i" },
+        { word: "Fly", def: "Move through the air", sent: "Birds ____ high.", group: "y_i" },
+        { word: "Sky", def: "Where the clouds are", sent: "The ____ is blue.", group: "y_i" },
+        { word: "Try", def: "To attempt", sent: "____ your best.", group: "y_i" },
+        { word: "Dry", def: "Not wet", sent: "The towel is ____.", group: "y_i" },
+        { word: "Shy", def: "Bashful or timid", sent: "The ____ cat hid.", group: "y_i" },
+        { word: "Spy", def: "Secret agent", sent: "The ____ looked for clues.", group: "y_i" },
+        { word: "Why", def: "Asking for a reason", sent: "____ is the sky blue?", group: "y_i" },
+        { word: "My", def: "Belongs to me", sent: "That is ____ book.", group: "y_i" },
+        { word: "Fry", def: "Cook in oil", sent: "We will ____ the egg.", group: "y_i" },
+
+        // Lesson 74: y /e/ (End of 2-syllable)
+        { word: "Happy", def: "Glad or joyful", sent: "I am so ____!", group: "y_e" },
+        { word: "Funny", def: "Makes you laugh", sent: "That joke was ____.", group: "y_e" },
+        { word: "Silly", def: "Goofy", sent: "Stop being ____.", group: "y_e" },
+        { word: "Puppy", def: "Baby dog", sent: "The ____ barked.", group: "y_e" },
+        { word: "Bunny", def: "Small rabbit", sent: "The ____ hopped away.", group: "y_e" },
+        { word: "Candy", def: "Sweet treat", sent: "Do not eat too much ____.", group: "y_e" },
+        { word: "Baby", def: "Very young child", sent: "The ____ is sleeping.", group: "y_e" },
+        { word: "Sunny", def: "Bright sun", sent: "It is a ____ day.", group: "y_e" },
+        { word: "Penny", def: "One cent coin", sent: "Find a lucky ____.", group: "y_e" },
+        { word: "Party", def: "Celebration", sent: "Birthday ____.", group: "y_e" },
+        { word: "Tummy", def: "Stomach", sent: "My ____ is full.", group: "y_e" },
+
+        // Lesson 75: -le
+        { word: "Bubble", def: "Soap ball of air", sent: "Pop the ____.", group: "le" },
+        { word: "Apple", def: "Red fruit", sent: "Eat a crunchy ____.", group: "le" },
+        { word: "Table", def: "Furniture to eat on", sent: "Set the ____ for dinner.", group: "le" },
+        { word: "Little", def: "Small", sent: "A ____ mouse.", group: "le" },
+        { word: "Purple", def: "Color of grapes", sent: "I like the color ____.", group: "le" },
+        { word: "Bottle", def: "Holds water", sent: "Fill up the water ____.", group: "le" },
+        { word: "Simple", def: "Easy", sent: "It is ____ to do.", group: "le" },
+        { word: "Middle", def: "Center", sent: "Stand in the ____.", group: "le" },
+        { word: "Puzzle", def: "Game with pieces", sent: "Solve the ____.", group: "le" },
+        { word: "Candle", def: "Wax light", sent: "Blow out the ____.", group: "le" },
+        { word: "Turtle", def: "Animal with shell", sent: "The ____ walks slow.", group: "le" }
+    ];
+
+    // ==========================================
+    // === GOOGLE FORMS CONFIGURATION SECTION ===
+    // ==========================================
+    
+    // PROVIDED LINK
+    const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScNBZQD7ulQgmTuY4LKbRPsunmuGCVCWfynnRij4mCL7kj7jg/formResponse";
+    
+    // PROVIDED ENTRY IDs
+    const FORM_ID_NAME = "entry.367069068";      
+    const FORM_ID_SCORE = "entry.1373567510";    
+    const FORM_ID_MISTAKES = "entry.1389440728";
+    const FORM_ID_PROBLEM = "entry.2123758649"; 
+
+    // ==========================================
+
+    let gameDeck = [];
+    let username = "Unknown";
+    let battleLog = [];
+    let lives = 3;
+    let powerupMsgTimer = null; 
+
+    // --- SETUP ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+    function resize() { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; }
+    window.addEventListener('resize', resize); resize();
+
+    // --- AUDIO ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSound(type) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
+
+        if (type === 'shoot') {
+            osc.frequency.setValueAtTime(600, now); osc.frequency.exponentialRampToValueAtTime(100, now+0.1);
+            gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0, now+0.1);
+            osc.start(); osc.stop(now+0.1);
+        } else if (type === 'type') { 
+            osc.type = 'square'; osc.frequency.setValueAtTime(800, now);
+            gain.gain.setValueAtTime(0.05, now); gain.gain.linearRampToValueAtTime(0, now+0.05);
+            osc.start(); osc.stop(now+0.05);
+        } else if (type === 'warp') { 
+            osc.type = 'sine'; osc.frequency.setValueAtTime(200, now); osc.frequency.linearRampToValueAtTime(800, now+0.5);
+            gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0, now+0.5);
+            osc.start(); osc.stop(now+0.5);
+        } else if (type === 'win') {
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(400, now); osc.frequency.setValueAtTime(600, now+0.1);
+            gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0, now+0.3);
+            osc.start(); osc.stop(now+0.3);
+        } else if (type === 'collect') { 
+            osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.linearRampToValueAtTime(800, now+0.2);
+            gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0, now+0.2);
+            osc.start(); osc.stop(now+0.2);
+        } else if (type === 'shield') {
+            osc.type = 'square'; osc.frequency.setValueAtTime(150, now); osc.frequency.linearRampToValueAtTime(300, now+0.3);
+            gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0, now+0.3);
+            osc.start(); osc.stop(now+0.3);
+        }
+    }
+
+    // --- GAME STATE ---
+    let gameState = 'START';
+    let score = 0;
+    let wordIndex = 0;
+    let currentLevel = 1;
+    const wordsPerLevel = 5; 
+    let lastSpellingIndex = -1;
+    
+    let targetSpellingWord = "";
+    let currentTypedWord = "";
+
+    const player = { 
+        x: 0, y: 0, w: 50, h: 50, 
+        baseSpeed: 6, speed: 6, 
+        color: '#00d2d3', 
+        powerupTime: 0, 
+        speedBoostTimer: 0, 
+        shielded: false      
+    };
+    
+    let bullets = [];
+    let asteroids = [];
+    let particles = [];
+    let stars = [];
+    let powerups = []; 
+    const keys = { left: false, right: false };
+
+    // --- INPUT BINDING ---
+    window.addEventListener('keydown', e => {
+        if (gameState === 'PLAYING') {
+            if(e.code === 'ArrowLeft') keys.left = true;
+            if(e.code === 'ArrowRight') keys.right = true;
+            if(e.code === 'Space') fireBullet();
+        } else if (gameState === 'SPELLING') {
+            handleSpellingKey(e.key);
+        }
+    });
+    window.addEventListener('keyup', e => {
+        if(e.code === 'ArrowLeft') keys.left = false;
+        if(e.code === 'ArrowRight') keys.right = false;
+    });
+
+    const btnLeft = document.getElementById('btn-left');
+    const btnRight = document.getElementById('btn-right');
+    const btnFire = document.getElementById('fire-btn');
+
+    function bindGameInput(elem, keyName) {
+        elem.addEventListener('touchstart', (e) => { e.preventDefault(); if(gameState==='PLAYING') keys[keyName]=true; elem.classList.add('pressed'); });
+        elem.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName]=false; elem.classList.remove('pressed'); });
+        elem.addEventListener('mousedown', (e) => { if(gameState==='PLAYING') keys[keyName]=true; elem.classList.add('pressed'); });
+        elem.addEventListener('mouseup', (e) => { keys[keyName]=false; elem.classList.remove('pressed'); });
+    }
+    bindGameInput(btnLeft, 'left');
+    bindGameInput(btnRight, 'right');
+    btnFire.addEventListener('touchstart', (e)=>{e.preventDefault(); if(gameState==='PLAYING') fireBullet(); btnFire.classList.add('pressed');});
+    btnFire.addEventListener('touchend', ()=>{btnFire.classList.remove('pressed');});
+    btnFire.addEventListener('mousedown', ()=>{if(gameState==='PLAYING') fireBullet(); btnFire.classList.add('pressed');});
+    btnFire.addEventListener('mouseup', ()=>{btnFire.classList.remove('pressed');});
+
+    function buildDeck() {
+        let shuffle = (arr) => arr.sort(() => Math.random() - 0.5);
+        let deck = [...sourceData];
+        shuffle(deck);
+        gameDeck = deck;
+    }
+
+    function startGame() {
+        const nameInput = document.getElementById('player-name');
+        const nameVal = nameInput.value.trim();
+        if (nameVal === "") {
+            nameInput.style.borderColor = "#ff7675";
+            nameInput.placeholder = "NAME REQUIRED!";
+            return; 
+        }
+        username = nameVal;
+        battleLog = [];
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('game-over-screen').classList.add('hidden');
+        score = 0;
+        wordIndex = 0;
+        currentLevel = 1;
+        lives = 3;
+        lastSpellingIndex = -1;
+        
+        player.shielded = false;
+        player.speedBoostTimer = 0;
+        player.powerupTime = 0;
+        
+        updateLivesDisplay();
+        buildDeck();
+        player.x = width / 2;
+        player.y = height - 160;
+        stars = [];
+        for(let i=0; i<80; i++) stars.push({x: Math.random()*width, y: Math.random()*height, speed: Math.random()*3});
+        loadQuestion();
+        gameState = 'PLAYING';
+        gameLoop();
+    }
+    
+    function resetGameUI() {
+        document.getElementById('start-screen').classList.remove('hidden');
+        document.getElementById('game-over-screen').classList.add('hidden');
+    }
+
+    function updateLivesDisplay() {
+        let display = "";
+        for(let i=0; i<lives; i++) display += "❤️";
+        if(lives === 0) display = "💀";
+        document.getElementById('lives-display').innerText = display;
+    }
+
+    function loadQuestion() {
+        if (wordIndex > 0 && wordIndex % wordsPerLevel === 0 && wordIndex !== lastSpellingIndex) {
+            startSpellingChallenge();
+            return;
+        }
+        if (wordIndex >= gameDeck.length) {
+            endGame();
+            return;
+        }
+        const data = gameDeck[wordIndex];
+        
+        document.getElementById('question-text').innerText = "CLUE: " + data.def;
+        document.getElementById('sentence-hint').innerText = '"' + data.sent + '"';
+        
+        // --- HINT SYSTEM FOR LEVEL 1 & 2 ---
+        const hintEl = document.getElementById('letter-hint');
+        if (currentLevel <= 2) {
+            hintEl.style.display = "block";
+            hintEl.innerText = "HINT: Starts with " + data.word.charAt(0).toUpperCase();
+        } else {
+            hintEl.style.display = "none";
+        }
+
+        document.getElementById('score-display').innerText = score;
+        document.getElementById('level-indicator').innerText = "LEVEL " + currentLevel;
+        document.getElementById('ui-layer').style.display = 'flex'; 
+        document.getElementById('touch-controls').style.display = 'flex'; 
+        spawnAsteroids(data);
+    }
+
+    function startSpellingChallenge() {
+        gameState = 'SPELLING';
+        lastSpellingIndex = wordIndex;
+        document.getElementById('ui-layer').style.display = 'none';
+        document.getElementById('touch-controls').style.display = 'none';
+        const data = gameDeck[wordIndex - 1]; 
+        targetSpellingWord = data.word.toUpperCase();
+        currentTypedWord = "";
+        const term = document.getElementById('spelling-terminal');
+        term.classList.remove('hidden');
+        document.getElementById('word-definition').innerText = "WORD: " + data.word.toUpperCase();
+        updateTypedDisplay();
+        generateVirtualKeyboard();
+    }
+
+    function generateVirtualKeyboard() {
+        const kb = document.getElementById('virtual-keyboard');
+        kb.innerHTML = '';
+        const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        for (let char of letters) {
+            let key = document.createElement('div');
+            key.className = 'key';
+            key.innerText = char;
+            key.onmousedown = (e) => { e.preventDefault(); handleSpellingKey(char); }; 
+            key.ontouchstart = (e) => { e.preventDefault(); handleSpellingKey(char); }; 
+            kb.appendChild(key);
+        }
+        let bs = document.createElement('div');
+        bs.className = 'key';
+        bs.style.minWidth = '60px';
+        bs.innerText = "⌫";
+        bs.onmousedown = (e) => { e.preventDefault(); handleSpellingKey("Backspace"); };
+        bs.ontouchstart = (e) => { e.preventDefault(); handleSpellingKey("Backspace"); };
+        kb.appendChild(bs);
+    }
+
+    function handleSpellingKey(key) {
+        if (gameState !== 'SPELLING') return;
+        if (key === 'Backspace') {
+            currentTypedWord = currentTypedWord.slice(0, -1);
+            playSound('type');
+        } else if (key.length === 1 && key.match(/[a-z]/i)) {
+            if (currentTypedWord.length < targetSpellingWord.length) {
+                currentTypedWord += key.toUpperCase();
+                playSound('type');
+            }
+        }
+        updateTypedDisplay();
+        if (currentTypedWord === targetSpellingWord) {
+            setTimeout(() => {
+                playSound('warp');
+                document.getElementById('spelling-terminal').classList.add('hidden');
+                completeLevelJump();
+            }, 500);
+        }
+    }
+
+    function updateTypedDisplay() {
+        const display = document.getElementById('typed-input');
+        display.innerText = currentTypedWord;
+        if (targetSpellingWord.startsWith(currentTypedWord)) {
+            display.style.color = "#00cec9";
+        } else {
+            display.style.color = "#ff7675";
+        }
+    }
+
+    function completeLevelJump() {
+        currentLevel++;
+        gameState = 'PLAYING';
+        document.getElementById('ui-layer').style.display = 'flex';
+        document.getElementById('touch-controls').style.display = 'flex';
+        loadQuestion(); 
+    }
+
+    function spawnAsteroids(data) {
+        asteroids = []; bullets = []; 
+        
+        // SPAWN COLLECTIBLES
+        trySpawnCollectibles();
+
+        // --- DIFFICULTY SETTING: MULTIPLE CHOICE COUNT ---
+        let numberOfChoices = 3;
+        if (currentLevel === 1) numberOfChoices = 2; // Easier for Level 1 (50/50 chance)
+
+        let options = [data.word];
+        while(options.length < numberOfChoices) {
+            let r = gameDeck[Math.floor(Math.random()*gameDeck.length)].word;
+            if(!options.includes(r)) options.push(r);
+        }
+        options.sort(()=>Math.random()-0.5);
+
+        // DIFFICULTY PROGRESSION (10% faster per level)
+        let levelMultiplier = Math.pow(1.1, currentLevel - 1);
+        let baseSpeed = 2 * levelMultiplier;
+        if (baseSpeed > 8) baseSpeed = 8; 
+
+        // Dynamic Sizing based on number of choices
+        const sector = width / numberOfChoices; 
+
+        options.forEach((word, i) => {
+            asteroids.push({
+                x: (i*sector)+(sector/2)-50, y: -150-(Math.random()*100),
+                w: 120, h: 60, text: word,
+                isCorrect: word===data.word, speed: baseSpeed,
+                wobble: currentLevel > 5 ? Math.random()*0.05 : 0
+            });
+        });
+    }
+
+    function trySpawnCollectibles() {
+        let rand = Math.random();
+        
+        // 1. Dual Blaster (Yellow) - 20%
+        if (rand < 0.2) {
+             powerups.push({x: Math.random()*(width-40)+20, y: -300, size: 30, speed: 2, type: 'GUN', color: '#f1c40f', symbol: ''});
+             return;
+        }
+        
+        // 2. Heart (Red) - 10%
+        if (rand < 0.3) {
+             powerups.push({x: Math.random()*(width-40)+20, y: -300, size: 30, speed: 3, type: 'HEART', color: '#ff7675', symbol: '+'});
+             return;
+        }
+
+        // 3. Speed Boost (Cyan) - 10%
+        if (rand < 0.4) {
+             powerups.push({x: Math.random()*(width-40)+20, y: -300, size: 30, speed: 4, type: 'SPEED', color: '#00d2d3', symbol: '⚡'});
+             return;
+        }
+
+        // 4. Shield (Purple) - 5%
+        if (rand < 0.45) {
+             powerups.push({x: Math.random()*(width-40)+20, y: -300, size: 30, speed: 2, type: 'SHIELD', color: '#a29bfe', symbol: '🛡️'});
+             return;
+        }
+    }
+
+    function fireBullet() {
+        if(gameState!=='PLAYING') return;
+        playSound('shoot');
+        if(player.powerupTime>0) {
+            bullets.push({x: player.x-20, y: player.y-20, w: 8, h: 20, speed: 12, color: '#feca57'});
+            bullets.push({x: player.x+20, y: player.y-20, w: 8, h: 20, speed: 12, color: '#feca57'});
+        } else {
+            bullets.push({x: player.x, y: player.y-20, w: 8, h: 20, speed: 12, color: '#ff9f43'});
+        }
+    }
+
+    function activatePowerup(p) {
+        const msg = document.getElementById('powerup-msg');
+        
+        // Clear any existing timer to prevent early disappearance
+        if (powerupMsgTimer) clearTimeout(powerupMsgTimer);
+
+        // Show the message
+        msg.style.display = 'block';
+
+        if (p.type === 'GUN') {
+            player.powerupTime = 300; 
+            msg.innerText = "DUAL BLASTERS! ⭐";
+        } else if (p.type === 'HEART') {
+            lives++;
+            if(lives > 5) lives = 5;
+            updateLivesDisplay();
+            playSound('collect');
+            msg.innerText = "EXTRA LIFE! ❤️";
+        } else if (p.type === 'SPEED') {
+            player.speedBoostTimer = 300; 
+            playSound('warp');
+            msg.innerText = "SPEED BOOST! ⚡";
+        } else if (p.type === 'SHIELD') {
+            player.shielded = true;
+            playSound('shield');
+            msg.innerText = "SHIELD UP! 🛡️";
+        }
+
+        // Hide message after 2 seconds
+        powerupMsgTimer = setTimeout(() => {
+            msg.style.display = 'none';
+        }, 2000);
+    }
+
+    function spawnParticles(x, y, color) {
+        for(let i=0; i<10; i++) particles.push({x:x, y:y, vx:(Math.random()-0.5)*10, vy:(Math.random()-0.5)*10, life:1, color:color});
+    }
+
+    function analyzePerformance() {
+        let mistakes = battleLog.filter(entry => entry.result === "WRONG");
+        let mistakeText = mistakes.map(m => `${m.word} (-${m.group})`).join(", ");
+        if (mistakeText === "") mistakeText = "None! Perfect Run.";
+        let counts = { tch: 0, dge: 0, vcc: 0, y_i: 0, y_e: 0, le: 0 };
+        mistakes.forEach(m => {
+            if (counts[m.group] !== undefined) counts[m.group]++;
+        });
+        let maxErrors = 0;
+        let worstGroup = "None";
+        for (const [group, count] of Object.entries(counts)) {
+            if (count > maxErrors) {
+                maxErrors = count;
+                worstGroup = "Problem: " + group.toUpperCase();
+            }
+        }
+        return { mistakeText, worstGroup };
+    }
+
+    function sendScoreToGoogleSheets() {
+        const report = analyzePerformance();
+        
+        document.getElementById('saving-msg').style.display = 'block';
+        document.getElementById('saving-msg').innerText = "Sending Data...";
+
+        let iframe = document.getElementById("hidden_iframe");
+        if (!iframe) {
+            iframe = document.createElement("iframe");
+            iframe.name = "hidden_iframe";
+            iframe.id = "hidden_iframe";
+            iframe.style.display = "none";
+            document.body.appendChild(iframe);
+        }
+
+        const form = document.createElement("form");
+        form.action = GOOGLE_FORM_URL;
+        form.method = "POST";
+        form.target = "hidden_iframe";
+        form.style.display = "none";
+
+        function createInput(name, value) {
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+        }
+
+        createInput(FORM_ID_NAME, username);
+        createInput(FORM_ID_SCORE, score);
+        createInput(FORM_ID_MISTAKES, report.mistakeText);
+        createInput(FORM_ID_PROBLEM, report.worstGroup);
+
+        document.body.appendChild(form);
+        form.submit();
+        
+        setTimeout(() => {
+            document.getElementById('saving-msg').innerText = "Data Transmitted Successfully!";
+            document.getElementById('saving-msg').style.color = "#00b894";
+            document.body.removeChild(form); 
+        }, 1000);
+    }
+
+    function endGame() {
+        gameState = 'GAMEOVER';
+        document.getElementById('ui-layer').style.display = 'none';
+        document.getElementById('touch-controls').style.display = 'none';
+        document.getElementById('game-over-screen').classList.remove('hidden');
+        document.getElementById('final-score').innerText = "Score: " + score;
+        sendScoreToGoogleSheets();
+    }
+
+    function playerTakeDamage() {
+        if (player.shielded) {
+            player.shielded = false;
+            playSound('shield');
+            spawnParticles(player.x, player.y, '#a29bfe');
+            return;
+        }
+
+        lives--;
+        updateLivesDisplay();
+        playSound('type'); 
+        spawnParticles(player.x, player.y, 'red');
+
+        if(lives <= 0) {
+            endGame();
+        } else {
+            player.powerupTime=0; 
+        }
+    }
+
+    function update() {
+        if(gameState !== 'PLAYING') return; 
+
+        // Speed Boost Logic
+        if (player.speedBoostTimer > 0) {
+            player.speed = player.baseSpeed * 2;
+            player.speedBoostTimer--;
+            if (player.speedBoostTimer % 5 === 0) {
+                particles.push({x:player.x, y:player.y+20, vx:0, vy:5, life:0.5, color: '#00d2d3'});
+            }
+        } else {
+            player.speed = player.baseSpeed;
+        }
+
+        if(player.powerupTime>0) player.powerupTime--;
+
+        if(keys.left && player.x>50) player.x-=player.speed;
+        if(keys.right && player.x<width-50) player.x+=player.speed;
+
+        // Bullets
+        for(let i=bullets.length-1; i>=0; i--) {
+            bullets[i].y-=bullets[i].speed;
+            if(bullets[i].y<0) bullets.splice(i,1);
+        }
+
+        // Powerups / Collectibles
+        for(let i=powerups.length-1; i>=0; i--) {
+            let p = powerups[i]; p.y+=p.speed;
+            
+            // 1. COLLECT BY SHIP
+            if(Math.hypot(player.x-p.x, player.y-p.y) < (player.w/2+p.size)) {
+                activatePowerup(p); powerups.splice(i,1); continue;
+            }
+            if(p.y>height) powerups.splice(i,1);
+
+            // 2. COLLECT BY BULLET (SHOOT TO COLLECT)
+            for(let j=bullets.length-1; j>=0; j--) {
+                let b = bullets[j];
+                // Check if bullet hits the powerup
+                if(b.x>p.x-20 && b.x<p.x+20 && b.y>p.y-20 && b.y<p.y+20) {
+                    bullets.splice(j,1); // Remove bullet
+                    activatePowerup(p);  // TRIGGER BONUS!
+                    powerups.splice(i,1); // Remove powerup
+                    break;
+                }
+            }
+        }
+
+        // Asteroids
+        for(let i=asteroids.length-1; i>=0; i--) {
+            let a = asteroids[i]; a.y+=a.speed;
+            if(a.wobble) a.x+=Math.sin(a.y*0.05)*2; 
+            
+            // Missed correct word
+            if(a.y > height) {
+                if(a.isCorrect) {
+                    playerTakeDamage();
+                    if(lives > 0) spawnAsteroids(gameDeck[wordIndex]); 
+                    return;
+                }
+                asteroids.splice(i,1);
+                continue;
+            }
+
+            for(let j=bullets.length-1; j>=0; j--) {
+                let b = bullets[j];
+                if(b.x>a.x && b.x<a.x+a.w && b.y>a.y && b.y<a.y+a.h) {
+                    bullets.splice(j,1);
+                    spawnParticles(a.x+a.w/2, a.y+a.h/2, a.isCorrect?'#00b894':'#d63031');
+                    
+                    if(a.isCorrect) {
+                        // HIT CORRECT
+                        playSound('win'); 
+                        battleLog.push({ word: a.text, group: gameDeck[wordIndex].group, result: "CORRECT" });
+                        score+=10; wordIndex++; loadQuestion(); return;
+                    } else {
+                        // HIT WRONG
+                        battleLog.push({ word: a.text, group: gameDeck[wordIndex].group, result: "WRONG" });
+                        asteroids.splice(i,1); 
+                        playerTakeDamage();
+                        return;
+                    }
+                }
+            }
+            // Collision Ship <-> Asteroid
+            if(player.x<a.x+a.w && player.x>a.x && player.y<a.y+a.h && player.y>a.y) {
+                 playerTakeDamage();
+                 if(lives > 0) {
+                     player.powerupTime=0; 
+                     spawnAsteroids(gameDeck[wordIndex]); 
+                 }
+                 return;
+            }
+        }
+        if(asteroids.length===0 && gameState==='PLAYING') spawnAsteroids(gameDeck[wordIndex]);
+
+        particles.forEach((p,i)=>{ p.x+=p.vx; p.y+=p.vy; p.life-=0.05; if(p.life<=0) particles.splice(i,1); });
+        stars.forEach(s=>{ s.y+=s.speed; if(s.y>height){s.y=0; s.x=Math.random()*width;} });
+    }
+
+    function draw() {
+        ctx.fillStyle = '#0d0e15'; ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = 'white'; stars.forEach(s=>{ctx.beginPath(); ctx.arc(s.x, s.y, 1, 0, Math.PI*2); ctx.fill();});
+
+        if(gameState !== 'PLAYING' && gameState !== 'SPELLING') return;
+
+        // Draw Collectibles
+        powerups.forEach(p=>{
+            ctx.fillStyle=p.color; 
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size/2, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur=15; ctx.shadowColor=p.color; ctx.fill(); ctx.shadowBlur=0;
+            if(p.symbol) {
+                ctx.fillStyle='white'; ctx.font='bold 20px Arial'; ctx.fillText(p.symbol, p.x-10, p.y+7);
+            }
+        });
+
+        if (gameState === 'PLAYING') {
+            ctx.save(); ctx.translate(player.x, player.y);
+            
+            // Draw Shield if Active
+            if (player.shielded) {
+                ctx.strokeStyle = '#a29bfe'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI*2); ctx.stroke();
+                ctx.fillStyle = 'rgba(162, 155, 254, 0.2)'; ctx.fill();
+            }
+
+            ctx.fillStyle = player.powerupTime>0 ? '#f1c40f' : player.color;
+            ctx.beginPath(); ctx.moveTo(0,-30); ctx.lineTo(20,20); ctx.lineTo(-20,20); ctx.fill();
+            ctx.fillStyle='orange'; ctx.beginPath(); ctx.moveTo(-10,20); ctx.lineTo(0,35+Math.random()*10); ctx.lineTo(10,20); ctx.fill();
+            ctx.restore();
+
+            asteroids.forEach(a=>{
+                ctx.fillStyle='#636e72'; ctx.beginPath(); ctx.roundRect(a.x, a.y, a.w, a.h, 10); ctx.fill();
+                ctx.strokeStyle='#b2bec3'; ctx.lineWidth=3; ctx.stroke();
+                ctx.fillStyle='white'; ctx.font='bold 20px Arial'; ctx.textAlign='center'; ctx.fillText(a.text, a.x+a.w/2, a.y+a.h/2+7);
+            });
+            bullets.forEach(b=>{ctx.fillStyle=b.color; ctx.fillRect(b.x-4, b.y, b.w, b.h);});
+            particles.forEach(p=>{ctx.globalAlpha=p.life; ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha=1;});
+        }
+    }
+
+    function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
+</script>
+</body>
+</html>
