@@ -19,7 +19,6 @@
 
         #top-hud {
             width: 100%; 
-            /* INCREASED HEIGHT AND PADDING */
             padding: 15px 15px 25px 15px; 
             background: rgba(0, 0, 0, 0.9);
             text-align: center; border-bottom: 3px solid #00d2d3; box-sizing: border-box;
@@ -42,9 +41,8 @@
             box-shadow: 0 0 15px rgba(84, 160, 255, 0.3);
         }
 
-        /* INCREASED FONT SIZES HERE */
         #question-text { 
-            font-size: 32px; /* Much bigger */
+            font-size: 32px; 
             color: #54a0ff; 
             font-weight: bold; 
             text-shadow: 0 0 10px #54a0ff; 
@@ -54,7 +52,7 @@
         }
         
         #sentence-hint { 
-            font-size: 22px; /* Much bigger */
+            font-size: 22px; 
             font-style: italic; 
             color: #ffffff; 
             display: block; 
@@ -86,20 +84,41 @@
         }
         #quit-btn:active { transform: scale(0.95); background: #ff7675; }
 
+        /* --- UPDATED TOUCH CONTROLS FOR 4-WAY MOVEMENT --- */
         #touch-controls {
-            position: absolute; bottom: 20px; left: 0; width: 100%; height: 120px;
-            pointer-events: auto; display: flex; justify-content: space-between;
-            padding: 0 40px; box-sizing: border-box; z-index: 50;
+            position: absolute; bottom: 20px; left: 0; width: 100%; height: 160px;
+            pointer-events: auto; display: flex; justify-content: space-between; align-items: flex-end;
+            padding: 0 20px; box-sizing: border-box; z-index: 50;
+        }
+
+        /* D-PAD GRID */
+        .d-pad {
+            display: grid;
+            grid-template-columns: 60px 60px 60px;
+            grid-template-rows: 60px 60px;
+            gap: 5px;
+            align-items: center;
+            justify-items: center;
         }
 
         .touch-btn {
             background: rgba(255, 255, 255, 0.15); border: 2px solid rgba(255, 255, 255, 0.4);
-            border-radius: 50%; width: 80px; height: 80px;
+            border-radius: 10px; width: 100%; height: 100%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 30px; color: white; cursor: pointer; transition: background 0.1s;
+            font-size: 24px; color: white; cursor: pointer; transition: background 0.1s;
         }
         .touch-btn:active, .touch-btn.pressed { background: rgba(84, 160, 255, 0.6); transform: scale(0.95); }
-        #fire-btn { background: rgba(238, 82, 83, 0.25); border-color: #ee5253; width: 90px; height: 90px; }
+        
+        #btn-up { grid-column: 2; grid-row: 1; }
+        #btn-left { grid-column: 1; grid-row: 2; }
+        #btn-down { grid-column: 2; grid-row: 2; }
+        #btn-right { grid-column: 3; grid-row: 2; }
+
+        #fire-btn { 
+            background: rgba(238, 82, 83, 0.25); border-color: #ee5253; 
+            width: 100px; height: 100px; border-radius: 50%;
+            font-size: 40px; margin-bottom: 10px;
+        }
         #fire-btn:active, #fire-btn.pressed { background: rgba(238, 82, 83, 0.8); }
 
         .screen-overlay {
@@ -183,8 +202,10 @@
     </div>
 
     <div id="touch-controls">
-        <div style="display:flex; gap:20px;">
+        <div class="d-pad">
+            <div class="touch-btn" id="btn-up">▲</div>
             <div class="touch-btn" id="btn-left">◀</div>
+            <div class="touch-btn" id="btn-down">▼</div>
             <div class="touch-btn" id="btn-right">▶</div>
         </div>
         <div class="touch-btn" id="fire-btn">🔥</div>
@@ -319,8 +340,8 @@
     const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScNBZQD7ulQgmTuY4LKbRPsunmuGCVCWfynnRij4mCL7kj7jg/formResponse";
     
     // PROVIDED ENTRY IDs
-    const FORM_ID_NAME = "entry.367069068";      
-    const FORM_ID_SCORE = "entry.1373567510";    
+    const FORM_ID_NAME = "entry.367069068";       
+    const FORM_ID_SCORE = "entry.1373567510";     
     const FORM_ID_MISTAKES = "entry.1389440728";
     const FORM_ID_PROBLEM = "entry.2123758649"; 
 
@@ -392,7 +413,7 @@
         color: '#00d2d3', 
         powerupTime: 0, 
         speedBoostTimer: 0, 
-        shielded: false      
+        shielded: false       
     };
     
     let bullets = [];
@@ -400,13 +421,16 @@
     let particles = [];
     let stars = [];
     let powerups = []; 
-    const keys = { left: false, right: false };
+    // UPDATED KEYS STATE
+    const keys = { left: false, right: false, up: false, down: false };
 
     // --- INPUT BINDING ---
     window.addEventListener('keydown', e => {
         if (gameState === 'PLAYING') {
             if(e.code === 'ArrowLeft') keys.left = true;
             if(e.code === 'ArrowRight') keys.right = true;
+            if(e.code === 'ArrowUp') keys.up = true;
+            if(e.code === 'ArrowDown') keys.down = true;
             if(e.code === 'Space') fireBullet();
         } else if (gameState === 'SPELLING') {
             handleSpellingKey(e.key);
@@ -415,10 +439,14 @@
     window.addEventListener('keyup', e => {
         if(e.code === 'ArrowLeft') keys.left = false;
         if(e.code === 'ArrowRight') keys.right = false;
+        if(e.code === 'ArrowUp') keys.up = false;
+        if(e.code === 'ArrowDown') keys.down = false;
     });
 
     const btnLeft = document.getElementById('btn-left');
     const btnRight = document.getElementById('btn-right');
+    const btnUp = document.getElementById('btn-up');
+    const btnDown = document.getElementById('btn-down');
     const btnFire = document.getElementById('fire-btn');
 
     function bindGameInput(elem, keyName) {
@@ -427,8 +455,13 @@
         elem.addEventListener('mousedown', (e) => { if(gameState==='PLAYING') keys[keyName]=true; elem.classList.add('pressed'); });
         elem.addEventListener('mouseup', (e) => { keys[keyName]=false; elem.classList.remove('pressed'); });
     }
+    
+    // Bind all 4 directions
     bindGameInput(btnLeft, 'left');
     bindGameInput(btnRight, 'right');
+    bindGameInput(btnUp, 'up');
+    bindGameInput(btnDown, 'down');
+
     btnFire.addEventListener('touchstart', (e)=>{e.preventDefault(); if(gameState==='PLAYING') fireBullet(); btnFire.classList.add('pressed');});
     btnFire.addEventListener('touchend', ()=>{btnFire.classList.remove('pressed');});
     btnFire.addEventListener('mousedown', ()=>{if(gameState==='PLAYING') fireBullet(); btnFire.classList.add('pressed');});
@@ -466,7 +499,8 @@
         updateLivesDisplay();
         buildDeck();
         player.x = width / 2;
-        player.y = height - 160;
+        // UPDATED: MOVED PLAYER LOWER (100px from bottom)
+        player.y = height - 100;
         stars = [];
         for(let i=0; i<80; i++) stars.push({x: Math.random()*width, y: Math.random()*height, speed: Math.random()*3});
         loadQuestion();
@@ -811,8 +845,11 @@
 
         if(player.powerupTime>0) player.powerupTime--;
 
+        // UPDATED MOVEMENT LOGIC (ALL DIRECTIONS)
         if(keys.left && player.x>50) player.x-=player.speed;
         if(keys.right && player.x<width-50) player.x+=player.speed;
+        if(keys.up && player.y>50) player.y-=player.speed;
+        if(keys.down && player.y<height-50) player.y+=player.speed;
 
         // Bullets
         for(let i=bullets.length-1; i>=0; i--) {
