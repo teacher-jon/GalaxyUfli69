@@ -677,10 +677,8 @@
         }
         options.sort(()=>Math.random()-0.5);
 
-        // DIFFICULTY PROGRESSION (10% faster per level)
-        let levelMultiplier = Math.pow(1.1, currentLevel - 1);
-        let baseSpeed = 2 * levelMultiplier;
-        if (baseSpeed > 8) baseSpeed = 8; 
+        // CONSTANT SPEED (Change 3 to your preferred speed)
+        let baseSpeed = 3;
 
         // Dynamic Sizing based on number of choices
         const sector = width / numberOfChoices; 
