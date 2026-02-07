@@ -616,10 +616,10 @@
             'green': new Image(),
             'yellow': new Image()
         };
-        shipImages['red'].src = '1.png';
-        shipImages['blue'].src = '2.png';
-        shipImages['green'].src = '3.png';
-        shipImages['yellow'].src = '4.png';
+        shipImages['red'].src = 'assets/1.png';
+        shipImages['blue'].src = 'assets/2.png';
+        shipImages['green'].src = 'assets/3.png';
+        shipImages['yellow'].src = 'assets/4.png';
 
         function selectShip(color, el) {
             selectedShipId = color;
@@ -1256,16 +1256,21 @@
                 }
 
                 // Draw Selected Ship Asset
-                let img = shipImages[selectedShipId];
-                if (img && img.complete) {
-                    ctx.save();
-                    // Rotate if needed (Uncomment ctx.rotate(Math.PI/2) if ships point Right)
-                    // ctx.rotate(0); 
-                    ctx.drawImage(img, -60, -60, 120, 120); // Resize to 120x120
-                    ctx.restore();
-                } else {
-                    // Fallback to Triangle if image fails
-                    ctx.fillStyle = player.powerupTime > 0 ? '#f1c40f' : player.color;
+                try {
+                    let img = shipImages[selectedShipId];
+                    if (img && img.complete && img.naturalWidth > 0) {
+                        ctx.save();
+                        // Resize to 120x120
+                        ctx.drawImage(img, -60, -60, 120, 120);
+                        ctx.restore();
+                    } else {
+                        // Fallback to Triangle if image fails
+                        ctx.fillStyle = (player && player.powerupTime > 0) ? '#f1c40f' : (player ? player.color : '#00d2d3');
+                        ctx.beginPath(); ctx.moveTo(0, -30); ctx.lineTo(20, 20); ctx.lineTo(-20, 20); ctx.fill();
+                    }
+                } catch (shipErr) {
+                    console.error("Ship Drawing Error:", shipErr);
+                    ctx.fillStyle = '#ff7675';
                     ctx.beginPath(); ctx.moveTo(0, -30); ctx.lineTo(20, 20); ctx.lineTo(-20, 20); ctx.fill();
                 }
                 // Engine Flame
@@ -1282,7 +1287,15 @@
             }
         }
 
-        function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
+        function gameLoop() {
+            try {
+                update();
+                draw();
+            } catch (loopErr) {
+                console.error("Game Loop Error:", loopErr);
+            }
+            requestAnimationFrame(gameLoop);
+        }
     </script>
 </body>
 
