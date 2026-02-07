@@ -755,7 +755,6 @@
             }
             player.speed = player.baseSpeed;
         }
-        window.addEventListener('resize', resize); resize();
 
         // --- AUDIO ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -812,6 +811,8 @@
             speedBoostTimer: 0,
             shielded: false
         };
+
+        window.addEventListener('resize', resize); resize();
 
         let bullets = [];
         let asteroids = [];
