@@ -684,7 +684,7 @@
 
         const player = {
             x: 0, y: 0, w: 50, h: 50,
-            baseSpeed: 6, speed: 6,
+            baseSpeed: 7, speed: 7,
             color: '#00d2d3',
             powerupTime: 0,
             speedBoostTimer: 0,
@@ -958,7 +958,7 @@
             options.sort(() => Math.random() - 0.5);
 
             // CONSTANT SPEED (Reduced from 3 to 1 per user request)
-            let baseSpeed = 2;
+            let baseSpeed = 2.5;
 
             // Dynamic Sizing based on number of choices
             const sector = width / numberOfChoices;
