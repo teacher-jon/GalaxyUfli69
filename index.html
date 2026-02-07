@@ -410,6 +410,97 @@
             display: none;
         }
     </style>
+    <style>
+        /* --- MOBILE RESPONSIVENESS --- */
+        @media (max-width: 768px) {
+            #top-hud {
+                padding: 10px 5px;
+            }
+
+            #question-container {
+                padding: 10px;
+                width: 95%;
+                margin-top: 5px;
+            }
+
+            #question-text {
+                font-size: 20px;
+                /* Smaller font for mobile */
+                margin-bottom: 5px;
+            }
+
+            #sentence-hint div:first-child {
+                font-size: 16px !important;
+                /* Sentence */
+            }
+
+            #sentence-hint div:nth-child(2),
+            #sentence-hint div:nth-child(3) {
+                font-size: 14px !important;
+                /* Translations */
+            }
+
+            #level-indicator,
+            #lives-display {
+                font-size: 14px;
+                margin-bottom: 2px;
+            }
+
+            #score-display {
+                font-size: 16px;
+                top: 10px;
+                right: 10px;
+            }
+
+            #quit-btn {
+                padding: 5px 10px;
+                font-size: 10px;
+                top: 10px;
+                left: 10px;
+            }
+
+            #touch-controls {
+                height: 140px;
+                /* Slightly shorter */
+                bottom: 10px;
+            }
+
+            .d-pad {
+                transform: scale(0.8);
+                /* Shrink d-pad */
+                transform-origin: bottom left;
+                gap: 2px;
+            }
+
+            #fire-btn {
+                width: 80px;
+                height: 80px;
+                font-size: 30px;
+            }
+
+            .screen-overlay {
+                width: 95%;
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            h2 {
+                font-size: 20px;
+            }
+
+            p {
+                font-size: 14px;
+            }
+
+            .ship-option {
+                width: 45px;
+                height: 45px;
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -632,7 +723,38 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         let width, height;
-        function resize() { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; }
+
+        // Dynamic Sizing Variables
+        let shipSize = 50;
+        let asteroidWidth = 120;
+        let asteroidHeight = 60;
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+
+            // Recalculate sizes based on width
+            // For mobile (e.g. 375px), 12% is ~45px. For desktop (1920px), 12% is huge (230px), so we cap it.
+            shipSize = Math.min(50, width * 0.12);
+
+            // Adjust player dimensions
+            player.w = shipSize;
+            player.h = shipSize;
+
+            // Adjust asteroid sizes
+            asteroidWidth = Math.min(120, width * 0.25);
+            asteroidHeight = asteroidWidth * 0.5;
+
+            // Adjust speed slightly for smaller screens
+            if (width < 600) {
+                player.baseSpeed = 4; // Slower on small screens for better control
+            } else {
+                player.baseSpeed = 6;
+            }
+            player.speed = player.baseSpeed;
+        }
         window.addEventListener('resize', resize); resize();
 
         // --- AUDIO ---
@@ -683,7 +805,7 @@
         let currentTypedWord = "";
 
         const player = {
-            x: 0, y: 0, w: 50, h: 50,
+            x: 0, y: 0, w: 50, h: 50, // Initial values, overwritten by resize()
             baseSpeed: 6, speed: 6,
             color: '#00d2d3',
             powerupTime: 0,
@@ -777,8 +899,13 @@
 
             updateLivesDisplay();
             buildDeck();
-            player.x = width / 2;
-            player.y = height - 100;
+
+            // Center player
+            resize(); // Force resize calc
+
+            player.x = width / 2 - player.w / 2;
+            player.y = height - (height * 0.15); // Percentage based positioning
+
             stars = [];
             for (let i = 0; i < 80; i++) stars.push({ x: Math.random() * width, y: Math.random() * height, speed: Math.random() * 3 });
             loadQuestion();
@@ -983,8 +1110,9 @@
 
             options.forEach((word, i) => {
                 asteroids.push({
-                    x: (i * sector) + (sector / 2) - 50, y: -150 - (Math.random() * 100),
-                    w: 120, h: 60, text: word,
+                    x: (i * sector) + (sector / 2) - (asteroidWidth / 2),
+                    y: -150 - (Math.random() * 100),
+                    w: asteroidWidth, h: asteroidHeight, text: word,
                     isCorrect: word === data.word, speed: baseSpeed,
                     wobble: currentLevel > 5 ? Math.random() * 0.05 : 0
                 });
@@ -1308,8 +1436,8 @@
                     let img = shipImages[selectedShipId];
                     if (img && img.complete && img.naturalWidth > 0) {
                         ctx.save();
-                        // Resize to 120x120
-                        ctx.drawImage(img, -60, -60, 120, 120);
+                        // Draw image to fill the player bounds
+                        ctx.drawImage(img, -player.w / 2, -player.h / 2, player.w, player.h);
                         ctx.restore();
                     } else {
                         // Fallback to Triangle if image fails
