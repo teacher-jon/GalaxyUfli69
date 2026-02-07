@@ -684,7 +684,7 @@
 
         const player = {
             x: 0, y: 0, w: 50, h: 50,
-            baseSpeed: 7, speed: 7,
+            baseSpeed: 6, speed: 6,
             color: '#00d2d3',
             powerupTime: 0,
             speedBoostTimer: 0,
@@ -696,6 +696,8 @@
         let particles = [];
         let stars = [];
         let powerups = [];
+        let shakeAmount = 0; // Screen shake effect
+        let shieldPulse = 0; // For pulse animation
         const keys = { left: false, right: false, up: false, down: false };
 
         // --- INPUT BINDING ---
@@ -816,7 +818,19 @@
             window.speechSynthesis.speak(utterance);
         }
 
-        function loadQuestion() {
+        function speakPhonemes(word) {
+            if (!autoReadEnabled) return;
+
+            // Cancel any previous speech to ensure the word is heard immediately
+            window.speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(word);
+            utterance.rate = 0.9; // Clear, natural speed
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function loadQuestion(isDelayed = false) {
             if (wordIndex > 0 && wordIndex % wordsPerLevel === 0 && wordIndex !== lastSpellingIndex) {
                 startSpellingChallenge();
                 return;
@@ -834,8 +848,12 @@
             <div style="font-size: 18px; color: #81ecec;">${data.ko}</div>
         `;
 
-            // TRIGGER AUTO-READ
-            speakCurrentClue();
+            // TRIGGER AUTO-READ (Delayed if we just hit a word)
+            if (isDelayed) {
+                setTimeout(speakCurrentClue, 1200);
+            } else {
+                speakCurrentClue();
+            }
 
             // --- HINT SYSTEM FOR LEVEL 1 & 2 ---
             const hintEl = document.getElementById('letter-hint');
@@ -957,8 +975,8 @@
             }
             options.sort(() => Math.random() - 0.5);
 
-            // CONSTANT SPEED (Reduced from 3 to 1 per user request)
-            let baseSpeed = 2.5;
+            // CONSTANT SPEED (Increased to 1.5 per user request for a bit more challenge)
+            let baseSpeed = 1.5;
 
             // Dynamic Sizing based on number of choices
             const sector = width / numberOfChoices;
@@ -1042,8 +1060,17 @@
             }, 2000);
         }
 
-        function spawnParticles(x, y, color) {
-            for (let i = 0; i < 10; i++) particles.push({ x: x, y: y, vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10, life: 1, color: color });
+        function spawnParticles(x, y, color, count = 10, size = 4) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: (Math.random() - 0.5) * 12,
+                    life: 1,
+                    color: color,
+                    size: Math.random() * size + 2
+                });
+            }
         }
 
         function analyzePerformance() {
@@ -1124,12 +1151,14 @@
         function playerTakeDamage() {
             if (player.shielded) {
                 player.shielded = false;
+                shakeAmount = 10;
                 playSound('shield');
-                spawnParticles(player.x, player.y, '#a29bfe');
+                spawnParticles(player.x, player.y, '#a29bfe', 15, 6);
                 return;
             }
 
             lives--;
+            shakeAmount = 20;
             updateLivesDisplay();
             playSound('type');
             spawnParticles(player.x, player.y, 'red');
@@ -1202,12 +1231,14 @@
                     let b = bullets[j];
                     if (b.x > a.x && b.x < a.x + a.w && b.y > a.y && b.y < a.y + a.h) {
                         bullets.splice(j, 1);
-                        spawnParticles(a.x + a.w / 2, a.y + a.h / 2, a.isCorrect ? '#00b894' : '#d63031');
+                        spawnParticles(a.x + a.w / 2, a.y + a.h / 2, a.isCorrect ? '#00b894' : '#d63031', 15, 5);
 
                         if (a.isCorrect) {
                             playSound('win');
+                            // Trigger Phoneme Blast!
+                            speakPhonemes(gameDeck[wordIndex].word);
                             battleLog.push({ word: a.text, group: gameDeck[wordIndex].group, result: "CORRECT" });
-                            score += 10; wordIndex++; loadQuestion(); return;
+                            score += 10; wordIndex++; loadQuestion(true); return;
                         } else {
                             battleLog.push({ word: a.text, group: gameDeck[wordIndex].group, result: "WRONG" });
                             asteroids.splice(i, 1);
@@ -1227,11 +1258,28 @@
             }
             if (asteroids.length === 0 && gameState === 'PLAYING') spawnAsteroids(gameDeck[wordIndex]);
 
-            particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.life -= 0.05; if (p.life <= 0) particles.splice(i, 1); });
+            particles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy;
+                p.life -= 0.05;
+                if (p.life <= 0) particles.splice(i, 1);
+            });
             stars.forEach(s => { s.y += s.speed; if (s.y > height) { s.y = 0; s.x = Math.random() * width; } });
+
+            // Phase 2: Effects Update
+            if (shakeAmount > 0) shakeAmount *= 0.9; // Decay
+            if (shakeAmount < 0.1) shakeAmount = 0;
+            shieldPulse += 0.1;
         }
 
         function draw() {
+            ctx.save();
+            // Apply Screen Shake
+            if (shakeAmount > 0) {
+                const sx = (Math.random() - 0.5) * shakeAmount;
+                const sy = (Math.random() - 0.5) * shakeAmount;
+                ctx.translate(sx, sy);
+            }
+
             ctx.fillStyle = '#0d0e15'; ctx.fillRect(0, 0, width, height);
             ctx.fillStyle = 'white'; stars.forEach(s => { ctx.beginPath(); ctx.arc(s.x, s.y, 1, 0, Math.PI * 2); ctx.fill(); });
 
@@ -1250,9 +1298,9 @@
                 ctx.save(); ctx.translate(player.x, player.y);
 
                 if (player.shielded) {
-                    ctx.strokeStyle = '#a29bfe'; ctx.lineWidth = 3;
-                    ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI * 2); ctx.stroke();
-                    ctx.fillStyle = 'rgba(162, 155, 254, 0.2)'; ctx.fill();
+                    ctx.strokeStyle = '#a29bfe'; ctx.lineWidth = 3 + Math.sin(shieldPulse) * 1.5;
+                    ctx.beginPath(); ctx.arc(0, 0, 40 + Math.sin(shieldPulse) * 2, 0, Math.PI * 2); ctx.stroke();
+                    ctx.fillStyle = `rgba(162, 155, 254, ${0.15 + Math.sin(shieldPulse) * 0.05})`; ctx.fill();
                 }
 
                 // Draw Selected Ship Asset
@@ -1283,8 +1331,16 @@
                     ctx.fillStyle = 'white'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center'; ctx.fillText(a.text, a.x + a.w / 2, a.y + a.h / 2 + 7);
                 });
                 bullets.forEach(b => { ctx.fillStyle = b.color; ctx.fillRect(b.x - 4, b.y, b.w, b.h); });
-                particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; });
+                particles.forEach(p => {
+                    ctx.globalAlpha = p.life;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size || 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                });
             }
+            ctx.restore(); // End of Shake Screen
         }
 
         function gameLoop() {
